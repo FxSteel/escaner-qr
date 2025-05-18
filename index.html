@@ -80,10 +80,21 @@
       background-color: #f3f4f6;
       color: #111827;
     }
+
+    #reader {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .result {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: green;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="card" id="main-card">
     <h1 class="title">Escáner de Códigos QR</h1>
     <div class="icon">
       <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scan-icon">
@@ -99,20 +110,22 @@
       <div class="camera-list" id="camera-list"></div>
       <div class="actions">
         <button class="button secondary" onclick="cancelSelection()">Cancelar</button>
-        <button class="button" onclick="continueWithCamera()">Continuar</button>
+        <button class="button" onclick="startScanner()">Continuar</button>
       </div>
     </div>
 
     <button id="select-button" class="button" onclick="showCameras()">Seleccionar Cámara</button>
+    <div id="reader" style="display:none"></div>
+    <div id="scan-result" class="result"></div>
   </div>
 
   <script>
     let selectedCameraId = ""
-    let cameras = []
+    let html5QrCode
+    const webhookURL = "https://tu-webhook.n8n.cloud/webhook-url"
 
     function showCameras() {
       Html5Qrcode.getCameras().then(devices => {
-        cameras = devices
         if (devices.length === 0) {
           alert("No se detectaron cámaras disponibles.")
           return
@@ -120,7 +133,6 @@
 
         const list = document.getElementById("camera-list")
         list.innerHTML = ""
-
         devices.forEach((cam, i) => {
           const option = document.createElement("div")
           option.className = "camera-option"
@@ -141,14 +153,32 @@
       document.getElementById("select-button").style.display = "block"
     }
 
-    function continueWithCamera() {
+    function startScanner() {
       const radios = document.getElementsByName("camera")
       radios.forEach(r => {
         if (r.checked) selectedCameraId = r.value
       })
 
-      alert("Seleccionaste la cámara: " + selectedCameraId)
-      // Aquí puedes iniciar el escaneo si quieres
+      document.getElementById("camera-selection").style.display = "none"
+      document.getElementById("reader").style.display = "block"
+
+      html5QrCode = new Html5Qrcode("reader")
+      html5QrCode.start(
+        selectedCameraId,
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          html5QrCode.stop()
+          document.getElementById("scan-result").textContent = `✅ Código leído: ${decodedText}`
+          fetch(webhookURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codigo: decodedText })
+          })
+        },
+        (errorMessage) => {
+          console.warn(errorMessage)
+        }
+      )
     }
   </script>
 </body>
