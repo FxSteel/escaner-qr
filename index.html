@@ -90,6 +90,11 @@
       margin-top: 1rem;
       font-weight: bold;
       color: green;
+      word-break: break-all;
+    }
+
+    .error {
+      color: red;
     }
   </style>
 </head>
@@ -122,7 +127,6 @@
   <script>
     let selectedCameraId = ""
     let html5QrCode
-    const webhookURL = "https://tu-webhook.n8n.cloud/webhook-url"
 
     function showCameras() {
       Html5Qrcode.getCameras().then(devices => {
@@ -168,15 +172,27 @@
         { fps: 10, qrbox: 250 },
         (decodedText) => {
           html5QrCode.stop()
-          document.getElementById("scan-result").textContent = `✅ Código leído: ${decodedText}`
-          fetch(webhookURL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ codigo: decodedText })
-          })
+          const resultElement = document.getElementById("scan-result")
+
+          if (decodedText.startsWith("http")) {
+            resultElement.classList.remove("error")
+            resultElement.textContent = `✅ Código leído: ${decodedText}`
+
+            fetch(decodedText)
+              .then(() => {
+                resultElement.textContent = `✅ Webhook ejecutado correctamente`
+              })
+              .catch(() => {
+                resultElement.textContent = `❌ Error al contactar al webhook`
+                resultElement.classList.add("error")
+              })
+          } else {
+            resultElement.textContent = "⚠️ El contenido del QR no es una URL válida."
+            resultElement.classList.add("error")
+          }
         },
         (errorMessage) => {
-          console.warn(errorMessage)
+          console.warn("Scan error:", errorMessage)
         }
       )
     }
