@@ -4,14 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Escáner de Códigos QR</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       margin: 0;
-      padding: 0;
       background-color: #f9fafb;
       font-family: Arial, sans-serif;
       display: flex;
@@ -21,26 +17,21 @@
     }
 
     .card {
-      background-color: #ffffff;
+      background: white;
       border: 1px solid #e5e7eb;
       border-radius: 12px;
       padding: 2rem;
+      max-width: 400px;
       width: 100%;
-      max-width: 360px;
-      text-align: center;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+      text-align: center;
     }
 
-    .card h1 {
+    .title {
       font-size: 1.5rem;
       font-weight: bold;
       margin-bottom: 1.5rem;
       color: #111827;
-    }
-
-    .icon {
-      margin-bottom: 1rem;
-      color: #9ca3af;
     }
 
     .description {
@@ -49,38 +40,116 @@
       margin-bottom: 1.5rem;
     }
 
-    .button {
-      background-color: #111111;
-      color: #ffffff;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s ease-in-out;
+    .icon {
+      color: #9ca3af;
+      margin-bottom: 1rem;
     }
 
-    .button:hover {
-      background-color: #000000;
+    .button {
+      background-color: #111111;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .camera-list {
+      text-align: left;
+      margin: 1rem 0;
+    }
+
+    .camera-option {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .camera-option input {
+      margin-right: 0.5rem;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+    }
+
+    .secondary {
+      background-color: #f3f4f6;
+      color: #111827;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Escáner de Códigos QR</h1>
+    <h1 class="title">Escáner de Códigos QR</h1>
     <div class="icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scan-icon lucide-scan">
+      <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scan-icon">
         <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
         <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
         <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
         <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
       </svg>
     </div>
-    <p class="description">
-      Toca el botón para seleccionar una cámara y escanear un código QR. Para mejores resultados, usa un dispositivo móvil.
-    </p>
-    <button class="button">Seleccionar Cámara</button>
+    <p class="description">Toca el botón para seleccionar una cámara y escanear un código QR. Para mejores resultados, usa un dispositivo móvil.</p>
+
+    <div id="camera-selection" style="display:none">
+      <div class="camera-list" id="camera-list"></div>
+      <div class="actions">
+        <button class="button secondary" onclick="cancelSelection()">Cancelar</button>
+        <button class="button" onclick="continueWithCamera()">Continuar</button>
+      </div>
+    </div>
+
+    <button id="select-button" class="button" onclick="showCameras()">Seleccionar Cámara</button>
   </div>
+
+  <script>
+    let selectedCameraId = ""
+    let cameras = []
+
+    function showCameras() {
+      Html5Qrcode.getCameras().then(devices => {
+        cameras = devices
+        if (devices.length === 0) {
+          alert("No se detectaron cámaras disponibles.")
+          return
+        }
+
+        const list = document.getElementById("camera-list")
+        list.innerHTML = ""
+
+        devices.forEach((cam, i) => {
+          const option = document.createElement("div")
+          option.className = "camera-option"
+          option.innerHTML = `
+            <input type="radio" name="camera" value="${cam.id}" ${i === 0 ? "checked" : ""}>
+            <label>${cam.label || `Cámara ${i + 1}`}</label>
+          `
+          list.appendChild(option)
+        })
+
+        document.getElementById("camera-selection").style.display = "block"
+        document.getElementById("select-button").style.display = "none"
+      })
+    }
+
+    function cancelSelection() {
+      document.getElementById("camera-selection").style.display = "none"
+      document.getElementById("select-button").style.display = "block"
+    }
+
+    function continueWithCamera() {
+      const radios = document.getElementsByName("camera")
+      radios.forEach(r => {
+        if (r.checked) selectedCameraId = r.value
+      })
+
+      alert("Seleccionaste la cámara: " + selectedCameraId)
+      // Aquí puedes iniciar el escaneo si quieres
+    }
+  </script>
 </body>
 </html>
