@@ -90,7 +90,7 @@
       margin-top: 1rem;
       font-weight: bold;
       color: green;
-      word-break: break-all;
+      word-break: break-word;
     }
 
     .error {
@@ -125,76 +125,90 @@
   </div>
 
   <script>
-    let selectedCameraId = ""
-    let html5QrCode
+    let selectedCameraId = "";
+    let html5QrCode;
 
     function showCameras() {
       Html5Qrcode.getCameras().then(devices => {
         if (devices.length === 0) {
-          alert("No se detectaron cámaras disponibles.")
-          return
+          alert("No se detectaron cámaras disponibles.");
+          return;
         }
 
-        const list = document.getElementById("camera-list")
-        list.innerHTML = ""
+        const list = document.getElementById("camera-list");
+        list.innerHTML = "";
         devices.forEach((cam, i) => {
-          const option = document.createElement("div")
-          option.className = "camera-option"
+          const option = document.createElement("div");
+          option.className = "camera-option";
           option.innerHTML = `
             <input type="radio" name="camera" value="${cam.id}" ${i === 0 ? "checked" : ""}>
             <label>${cam.label || `Cámara ${i + 1}`}</label>
-          `
-          list.appendChild(option)
-        })
+          `;
+          list.appendChild(option);
+        });
 
-        document.getElementById("camera-selection").style.display = "block"
-        document.getElementById("select-button").style.display = "none"
-      })
+        document.getElementById("camera-selection").style.display = "block";
+        document.getElementById("select-button").style.display = "none";
+      });
     }
 
     function cancelSelection() {
-      document.getElementById("camera-selection").style.display = "none"
-      document.getElementById("select-button").style.display = "block"
+      document.getElementById("camera-selection").style.display = "none";
+      document.getElementById("select-button").style.display = "block";
     }
 
     function startScanner() {
-      const radios = document.getElementsByName("camera")
+      const radios = document.getElementsByName("camera");
       radios.forEach(r => {
-        if (r.checked) selectedCameraId = r.value
-      })
+        if (r.checked) selectedCameraId = r.value;
+      });
 
-      document.getElementById("camera-selection").style.display = "none"
-      document.getElementById("reader").style.display = "block"
+      document.getElementById("camera-selection").style.display = "none";
+      document.getElementById("reader").style.display = "block";
 
-      html5QrCode = new Html5Qrcode("reader")
+      html5QrCode = new Html5QrCode("reader");
       html5QrCode.start(
         selectedCameraId,
         { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          html5QrCode.stop()
-          const resultElement = document.getElementById("scan-result")
-
-          if (decodedText.startsWith("http")) {
-            resultElement.classList.remove("error")
-            resultElement.textContent = `✅ Código leído: ${decodedText}`
-
-            fetch(decodedText)
-              .then(() => {
-                resultElement.textContent = `✅ Escaneo completo y exitoso`
-              })
-              .catch(() => {
-                resultElement.textContent = `❌ Error al contactar al webhook`
-                resultElement.classList.add("error")
-              })
-          } else {
-            resultElement.textContent = "⚠️ El contenido del QR no es una URL válida."
-            resultElement.classList.add("error")
-          }
-        },
+        onScanSuccess,
         (errorMessage) => {
-          console.warn("Scan error:", errorMessage)
+          console.warn("Scan error:", errorMessage);
         }
-      )
+      );
+    }
+
+    function onScanSuccess(decodedText) {
+      html5QrCode.stop();
+      const resultElement = document.getElementById("scan-result");
+
+      if (decodedText.startsWith("http")) {
+        resultElement.classList.remove("error");
+        resultElement.textContent = `✅ Código leído, enviando...`;
+
+        fetch(decodedText)
+          .then(() => {
+            resultElement.textContent = `✅ Escaneo completo y exitoso`;
+
+            setTimeout(() => {
+              resultElement.textContent = "";
+              html5QrCode.start(
+                selectedCameraId,
+                { fps: 10, qrbox: 250 },
+                onScanSuccess,
+                (errorMessage) => {
+                  console.warn("Scan error:", errorMessage);
+                }
+              );
+            }, 3000);
+          })
+          .catch(() => {
+            resultElement.textContent = `❌ Error al contactar al webhook`;
+            resultElement.classList.add("error");
+          });
+      } else {
+        resultElement.textContent = "⚠️ El contenido del QR no es una URL válida.";
+        resultElement.classList.add("error");
+      }
     }
   </script>
 </body>
