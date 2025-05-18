@@ -97,6 +97,11 @@
     .error {
       color: red;
     }
+
+    #btn-reescanear {
+      display: none;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -123,6 +128,7 @@
     <button id="select-button" class="button" onclick="showCameras()">Seleccionar Cámara</button>
     <div id="reader" style="display:none"></div>
     <div id="scan-result" class="result"></div>
+    <button id="btn-reescanear" class="button" onclick="reiniciarScanner()">Escanear otro QR</button>
   </div>
 
   <script>
@@ -159,6 +165,7 @@
     }
 
     function startScanner() {
+      document.getElementById("btn-reescanear").style.display = "none";
       const radios = document.getElementsByName("camera");
       radios.forEach(r => {
         if (r.checked) selectedCameraId = r.value;
@@ -166,6 +173,7 @@
 
       document.getElementById("camera-selection").style.display = "none";
       document.getElementById("reader").style.display = "block";
+      document.getElementById("scan-result").textContent = "";
 
       html5QrCode = new Html5Qrcode("reader");
       html5QrCode.start(
@@ -181,39 +189,45 @@
     function onScanSuccess(decodedText) {
       html5QrCode.stop().then(() => {
         const resultElement = document.getElementById("scan-result");
+        const reScanButton = document.getElementById("btn-reescanear");
 
         if (decodedText.startsWith("http")) {
           resultElement.classList.remove("error");
-          resultElement.textContent = `✅ Código leído, enviando...`;
-
-          fetch(decodedText)
-            .then(() => {
-              resultElement.textContent = `✅ Escaneo completo y exitoso`;
-
-              setTimeout(() => {
-                resultElement.textContent = "";
-                document.getElementById("reader").innerHTML = ""; // limpia el contenedor
-                html5QrCode = new Html5Qrcode("reader"); // crea nueva instancia
-
-                html5QrCode.start(
-                  selectedCameraId,
-                  { fps: 10, qrbox: 250 },
-                  onScanSuccess,
-                  (errorMessage) => {
-                    console.warn("Scan error:", errorMessage);
-                  }
-                );
-              }, 3000);
-            })
-            .catch(() => {
-              resultElement.textContent = `❌ Error al contactar al webhook`;
-              resultElement.classList.add("error");
-            });
+          resultElement.textContent = `✅ Escaneo completo y exitoso`;
+          reScanButton.style.display = "inline-block";
         } else {
           resultElement.textContent = "⚠️ El contenido del QR no es una URL válida.";
           resultElement.classList.add("error");
         }
+
+        // Enviar el webhook si es válido
+        if (decodedText.startsWith("http")) {
+          fetch(decodedText).catch(() => {
+            resultElement.textContent = `❌ Error al contactar al webhook`;
+            resultElement.classList.add("error");
+            reScanButton.style.display = "inline-block";
+          });
+        }
       });
+    }
+
+    function reiniciarScanner() {
+      const resultElement = document.getElementById("scan-result");
+      const reScanButton = document.getElementById("btn-reescanear");
+
+      resultElement.textContent = "";
+      reScanButton.style.display = "none";
+      document.getElementById("reader").innerHTML = "";
+
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        selectedCameraId,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess,
+        (errorMessage) => {
+          console.warn("Scan error:", errorMessage);
+        }
+      );
     }
   </script>
 </body>
