@@ -19,11 +19,11 @@
 
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.2rem;
       color: #111827;
     }
 
-    #reader {
+    #qr-reader {
       width: 320px;
       margin: 0 auto;
     }
@@ -31,7 +31,17 @@
     #status {
       margin-top: 1rem;
       font-weight: bold;
-      color: #111;
+    }
+
+    #scan-button {
+      margin-top: 1rem;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #111;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
     .status-success {
@@ -41,19 +51,54 @@
     .status-error {
       color: #dc2626;
     }
-
-    .qr-box {
-      border-radius: 12px;
-      overflow: hidden;
-    }
   </style>
 </head>
 <body>
   <h1>Escáner de Códigos QR</h1>
-  <div id="reader" class="qr-box"></div>
-  <p id="status">Selecciona una cámara y escanea tu código.</p>
+
+  <div id="qr-reader" style="display: none;"></div>
+  <button id="scan-button">Seleccionar Cámara</button>
+  <p id="status">Toca el botón para escanear tu código QR.</p>
 
   <script>
+    const scanBtn = document.getElementById("scan-button");
+    const qrReader = document.getElementById("qr-reader");
+    const statusEl = document.getElementById("status");
+
+    const html5QrCode = new Html5Qrcode("qr-reader");
+
+    scanBtn.addEventListener("click", async () => {
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length) {
+          const cameraId = devices[0].id; // Usa la primera cámara encontrada
+          qrReader.style.display = "block";
+          scanBtn.style.display = "none";
+
+          html5QrCode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: 250
+            },
+            (decodedText) => {
+              statusEl.textContent = `Código leído: ${decodedText}`;
+              statusEl.className = "status-success";
+              html5QrCode.stop();
+              sendToWebhook(decodedText);
+            },
+            (error) => {
+              // Puedes comentar esto si no quieres ver errores de escaneo
+              console.warn(error);
+            }
+          );
+        }
+      } catch (err) {
+        statusEl.textContent = "❌ No se pudo acceder a la cámara.";
+        statusEl.className = "status-error";
+      }
+    });
+
     function sendToWebhook(qrData) {
       fetch("https://tu-webhook.n8n.cloud/webhook-url-aqui", {
         method: "POST",
@@ -61,35 +106,16 @@
         body: JSON.stringify({ codigo: qrData })
       })
       .then(res => {
-        const status = document.getElementById("status");
         if (res.ok) {
-          status.textContent = "✅ Asistencia registrada con éxito";
-          status.className = "status-success";
+          statusEl.textContent = "✅ Asistencia registrada con éxito";
         } else {
-          status.textContent = "❌ No se pudo registrar asistencia";
-          status.className = "status-error";
+          statusEl.textContent = "❌ Error al registrar asistencia";
         }
       })
       .catch(() => {
-        const status = document.getElementById("status");
-        status.textContent = "⚠️ Error al contactar con el servidor";
-        status.className = "status-error";
+        statusEl.textContent = "⚠️ Error de red al contactar al servidor";
       });
     }
-
-    function onScanSuccess(decodedText) {
-      const status = document.getElementById("status");
-      status.textContent = `⏳ Leyendo código...`;
-      sendToWebhook(decodedText);
-      html5QrcodeScanner.clear();
-    }
-
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", {
-        fps: 10,
-        qrbox: { width: 250, height: 250 }
-      });
-    html5QrcodeScanner.render(onScanSuccess);
   </script>
 </body>
 </html>
